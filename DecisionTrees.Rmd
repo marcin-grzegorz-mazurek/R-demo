@@ -1,0 +1,235 @@
+---
+title: "Decision Trees and Random Forests"
+author: "Marcin Mazurek"
+date:  '2017-11-08'
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+
+
+
+
+#Classification trees 
+##Przykładowy zbiór danych
+
+###Metadata
+http://archive.ics.uci.edu/ml/datasets/statlog+(heart)
+
+#### Attribute Information: 
+
+-- 1. age 
+
+-- 2. sex 
+
+-- 3. chest pain type (4 values) 
+
+-- 4. resting blood pressure 
+
+-- 5. serum cholestoral in mg/dl 
+
+-- 6. fasting blood sugar > 120 mg/dl 
+
+-- 7. resting electrocardiographic results (values 0,1,2) 
+
+-- 8. maximum heart rate achieved 
+
+-- 9. exercise induced angina 
+
+-- 10. oldpeak = ST depression induced by exercise relative to rest 
+
+-- 11. the slope of the peak exercise ST segment 
+
+-- 12. number of major vessels (0-3) colored by flourosopy 
+
+-- 13. thal: 3 = normal; 6 = fixed defect; 7 = reversable defect 
+
+#### Attributes types 
+
+
+Real: 1,4,5,8,10,12 
+
+Ordered:11, 
+
+Binary: 2,6,9 
+
+Nominal:7,3,13 
+
+
+#### Variable to be predicted 
+ 
+Absence (1) or presence (2) of heart disease 
+
+### Import data 
+```{r}
+
+library(ggplot2)
+
+
+heart<-read.csv("heart.dat", sep=' ')
+
+colnames(heart)<-c('age',
+  'sex' ,
+  'chest_pain_type' ,
+  'blood_pressure' ,
+  'cholestor',
+  'sugar',
+  'resting_electrocardiographic_results' ,
+  'heart_rate', 
+  'angina' ,
+  'oldpeak', 
+  'slope' ,
+  'vessles' ,
+  'thal',
+  'disease')
+
+
+head(heart)
+
+#binary columns
+bin_cols <- colnames(heart)[c(2,6,9)]
+nom_cols <- colnames(heart)[c(7,3,13)] 
+
+#
+heart[bin_cols]<-lapply(heart[bin_cols], factor)
+heart[nom_cols]<-lapply(heart[nom_cols], factor)
+
+#target_columns
+target_col<-'disease'
+heart[target_col]<-lapply(heart[target_col], factor)
+#losowe pomieszanie kolejnosci rekordow 
+
+heart.shuffled<-heart[sample(nrow(heart)),]
+
+
+#indeksy rozgraniczajce partycje (rekordy sa juz pomieszane)
+idx1<-round(0.6*nrow(heart.shuffled))
+idx2<-round(0.8*nrow(heart.shuffled))
+
+
+train<-heart.shuffled[1:idx1,]
+validation<-heart.shuffled[(idx1+1):idx2,]
+test<-heart.shuffled[(idx2+1):nrow(heart.shuffled),]
+
+predictors_string<-paste( c(bin_cols ,  nom_cols), collapse='+')
+formula<-as.formula(paste('disease~', predictors_string))
+
+###prior probabilities 
+
+t<-table(heart$disease)
+prop.table(t)
+```
+
+##Budowa drzewa klasyfikującego
+###Biblioteka tree 
+
+####Budowa drzewa 
+```{r}
+library(tree)
+
+heart.tree <- tree(formula, train)
+summary(heart.tree)
+heart.tree
+
+plot(heart.tree)
+text(heart.tree, pretty=0)
+
+
+```
+
+
+####Błąd klasyfikacji 
+
+```{r}
+p_disease<-predict(heart.tree, test )
+#Stosunek poprawnie zaklsyfikowanych do wszystkich 
+accuracy<-mean(max.col(p_disease)==test$disease)
+misclasification_rate<-1-accuracy
+
+accuracy
+
+```
+
+####Przycinanie (prunning)
+```{r}
+
+#przycinanie drzewa: wykreślenie błędu w zależności od liczby liśći 
+#FUN - kryterium przycianania, 
+cv.heart.tree<-cv.tree(heart.tree, FUN = prune.misclass)
+cv.heart.tree
+
+par(mfrow=c(1,2))
+plot(cv.heart.tree$size, cv.heart.tree$dev, type="b")
+plot(cv.heart.tree$k, cv.heart.tree$dev, type="b")
+
+
+
+pruned.heart.tree=prune.misclass(heart.tree, best=4)
+summary(pruned.heart.tree)
+
+
+plot(pruned.heart.tree)
+text(pruned.heart.tree, pretty=0)
+
+
+```
+####Błąd klasyfikacji 
+
+```{r}
+p_disease<-predict(pruned.heart.tree, test )
+#Stosunek poprawnie zaklsyfikowanych do wszystkich 
+accuracy<-mean(max.col(p_disease)==test$disease)
+misclasification_rate<-1-accuracy
+
+accuracy
+
+```
+
+
+####Biblioteka rpart 
+
+```{r}
+
+library(rpart)
+library(rpart.plot)
+
+
+heart.tree <- rpart(formula, train ,method="class")
+summary(heart.tree)
+rpart.plot(heart.tree, uniform=TRUE)
+
+printcp(heart.tree)
+opt <- which.min(heart.tree$cptable[,'xerror'])
+cp<-heart.tree$cptable[opt,"CP"]
+
+#pruned<-prune(heart.tree,cp)
+
+plot(heart.tree)
+text(heart.tree)
+
+```
+
+
+
+##Random forest
+```{r} 
+library (randomForest)
+
+
+rforest<-randomForest(formula, train, ntree=50)
+
+p_disease<-predict(rforest, test )
+#Stosunek poprawnie zaklsyfikowanych do wszystkich 
+accuracy<-mean(p_disease==test$disease)
+misclasification_rate<-1-accuracy
+
+accuracy
+
+```
+
+#Regression trees

@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/322903/1dee2512473a4252a7ccc97d4e61801c
+bundleId: https://api.rpubs.com/api/v1/document/322903/1dee2512473a4252a7ccc97d4e61801c
+url: http://rpubs.com/mmazurek/322903
+when: 1523311235.49186

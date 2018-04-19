@@ -1,0 +1,205 @@
+---
+title: "Regresja logistyczna"
+author: "Marcin Mazurek"
+date: '2018-04-05'
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+#Regresja logistyczna binarna 
+
+#### Funkcja logistyczna: 
+
+$$p(X)=\frac{e^{\beta_0+\beta_1 X_1 + \dots + \beta_p X_p }}{1+e^{\beta_0+\beta_1 X_1 + \dots + \beta_p X_p}} $$
+
+
+#### Logit, (log-odds) : 
+
+$$log \left( \frac{p(X)}{1-p(X)}\right)= \beta_0+\beta_1 X_1 + \dots + \beta_p X_p$$
+
+
+#### iloraz szans (ang. odds):  
+
+Iloraz prawdopodobieństwa sukcesu i prawdopodobieństwa porażki: 
+
+$$ \frac{p(X)}{1-p(X)}$$
+
+#### Funkcja wiarygodności: 
+Do oszacowania parametrów: $\beta_0,  \beta_1,  \dots ,  \beta_p$  wykorzystywana jest metoda największej wiarygodności (MNW, maximum likelihood)
+
+Parametry   są tak dobierane, aby zmaksymaliować wartość funkcji wiarygodności: 
+
+$$\ell \left( \beta_0,  \beta_1,  \dots ,  \beta_p \right)= \prod \left(p(x_i)\right)^{y_i} \left(1-p(x_i)\right)^{1-y_i}  $$
+Przykładowy zbiór danych: zmienna default oznacza niewypłacalność osoby, która zaciągnęla kredyt.
+
+```{r, echo=TRUE}
+library(ISLR)
+data("Default")
+summary(Default)
+plot(Default$default)
+```
+
+
+
+```{r, echo=TRUE}
+library(ggplot2)
+data("Default")
+
+model<-glm(default~balance, Default, family="binomial")
+pred<-predict(model, Default, type="response")
+
+
+Default$default<-as.numeric(Default$default=="Yes")
+q<-ggplot(Default, aes(balance, default)) + geom_point() + geom_line(aes(y=pred, color="red"))
+q
+
+
+```
+
+```{r, echo=TRUE}
+data("Default")
+p<-ggplot(Default, aes(x=balance, color=default)) + geom_density()
+p
+
+```
+
+### Model regresji 
+
+```{r, echo=TRUE}
+
+model<-glm(default<-default ~ ., family="binomial", data=Default)
+summary(model)
+
+```
+### Scoring 
+
+
+```{r, echo=TRUE}
+#domylsnie zwracana wartosc funkcji logit, dla uzyskanai p-stw: type=response
+pred<-predict(model, Default, type="response")
+head(pred)
+```
+
+
+P-stwo defaultu dla pierwszego rekordu ze zbioru: 
+```{r, echo=TRUE}
+Default$student<-as.numeric(Default$student=="Yes")
+print(model$coefficients)
+
+#logit
+v<-as.matrix(Default[1,c("student", "balance", "income")])
+
+v<-append(1,v)
+logit<-sum(v*model$coefficients)
+p<-exp(logit)/(1+exp(logit))
+
+#p-stwo defaultu: 
+p
+```
+
+
+#Regresja logistyczna wieloklasowa 
+
+##Regresja logistyczna one vs all 
+Odnośniki do danych źródłowych: 
+
+https://github.com/rlowrance/re/blob/master/hsbdemo.csv
+
+https://stats.idre.ucla.edu/stata/seminars/stata-logistic/
+
+
+```{r, echo=TRUE}
+
+
+hsbdemo=read.csv("W:\\Przedmioty\\Metody i systemy wspomagania decyzji\\hsbdemo.csv")
+head(hsbdemo)
+summary(hsbdemo)
+
+```
+
+Kodwanie binarne zmiennej: 
+https://stats.idre.ucla.edu/r/modules/coding-for-categorical-variables-in-regression-models/ 
+
+```{r, echo=TRUE}
+
+#one_hot_encoding of target variable: 
+
+   
+contrasts(hsbdemo$prog) <- contr.treatment(3,contrast=FALSE)
+
+
+
+# lub inaczej: 
+hsbdemo$prog_academic = ifelse(hsbdemo$prog=="academic",1,0)
+hsbdemo$prog_general = ifelse(hsbdemo$prog=="general",1,0)
+hsbdemo$prog_vocation = ifelse(hsbdemo$prog=="vocation",1,0)
+
+hsbdemo$prog_academic<-as.factor(hsbdemo$prog_academic)
+hsbdemo$prog_general<-as.factor(hsbdemo$prog_general)
+hsbdemo$prog_vocation<-as.factor(hsbdemo$prog_vocation)
+
+summary(hsbdemo)
+
+```
+
+Dla każdej zmiennej binarnej formułowane jest zadanie: 
+
+```{r, echo=TRUE}
+model_academic <- glm(data=hsbdemo, prog_academic~female+read+write+math + science + socst , family ="binomial" )
+model_general <- glm(data=hsbdemo, prog_general~female+read+write+math + science + socst , family ="binomial" )
+model_vocation <- glm(data=hsbdemo, prog_vocation~female+read+write+math + science + socst , family ="binomial" )
+
+```
+
+Wyznaczenie prognozy dla każdego z modelu: 
+
+```{r, echo=TRUE}
+academic_p <- predict(data=hsbdemo, model_academic , type="response" )
+general_p <- predict(data=hsbdemo, model_general , type="response" )
+vocation_p <- predict(data=hsbdemo, model_vocation , type="response" )
+pred<-cbind(academic_p,general_p,vocation_p)
+head(pred)
+```
+
+```{r, echo=TRUE}
+
+
+
+pred_label_idx<-apply(pred,1,which.max)
+actual_label_idx<-apply(hsbdemo[c("prog_academic", "prog_general", "prog_vocation")],1,which.max)
+
+#Blad klasyfikacji 
+
+misclassification_rate<-sum(pred_label_idx != actual_label_idx) / length (actual_label_idx)
+misclassification_rate
+
+
+# Dokładność 
+accuracy<-sum(pred_label_idx == actual_label_idx) / length (actual_label_idx)
+accuracy
+
+
+```
+
+```{r, echo=TRUE}
+
+
+
+
+pred_prog<-levels(hsbdemo$prog)[pred_label_idx]
+
+m<-data.frame(actual_prog=as.vector(hsbdemo$prog), pred_prog)
+
+#macierz błędów pomyłek 
+table(m)
+```
+
+
+
+
+

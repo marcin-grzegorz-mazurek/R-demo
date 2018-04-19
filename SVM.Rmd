@@ -1,0 +1,328 @@
+---
+title: "SVM"
+author: "Marcin Mazurek"
+date:  '2017-11-22'
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+
+
+
+
+#Suppport Vector Machines 
+
+Maszyna wektorów nośnych / maszyna wektorów podpierających
+
+
+## Podstawowe pojęcia z geometrii analitycznej
+
+
+Odległość punktu $M=(x_0, y_0)$ od prostej $l$ danej równaniem w postaci ogólnej:
+
+$l: Ax + By + C = 0$
+
+wyraża się wzorem: 
+
+$d(M,l) = \frac{|Ax_0 + By_0 + C|}{\sqrt{A^2+B^2}}$
+
+
+Moduł wektora (długość wektora, norma): 
+
+$\mathbf{u}=[u_1, u_2]$
+$u=\sqrt{u_1^2 +  u_2^2}$
+
+ogólnie: 
+
+$||\mathbf{u}||=\sqrt{u_1^2 +  u_2^2 +\cdots  + u_p^2}$
+
+
+
+
+
+## Hierpłaszczyzna rozdzielająca 
+
+Rozważmy zadanie wyznaczenia "marginesów" ograniczonych dwiema równoległymi hiperpłaszczyznami,  we wnętrzu których nie leży ani jeden element próby uczącej: 
+
+$x_1, \cdots, x_n \in R^p$
+
+z przypisanymi etykietami klas:
+
+$y_1, \cdots, y_n \in \{-1,1\}$
+
+
+Zdefiniujmy parametry hiperpłaszczyzny: 
+$\mathbf{w}=[w_1, w_2, \cdots, w_p]$
+
+
+$\mathbf{w}^T \mathbf{x} +b \geq 1$ gdy $y_i=1$
+
+oraz 
+
+$\mathbf{w}^T\mathbf{x} +b  \leq -1$ gdy $y_i=-1$
+
+
+
+$H_1$ oraz $H_2$ - hiperpłaszczyzny:
+
+$H_1: \mathbf{w}^T\mathbf{x} +b  =  1$
+
+$H_2: \mathbf{w}^T\mathbf{x} +b  =  -1$
+
+Punkty na hiperpłaszczyznach $H_1$ oraz $H_2$ są końcami wektorów podpierających.
+
+Płaszczyzna rozdzielająca $H_0$ leżąca pomiędzy: 
+
+$H_0: \mathbf{w}^T\mathbf{x} +b  = 0$
+
+Odległości:
+
+$d_+$  najmniejsza odległość od hiperpłaszczyzny rozdzielającej $H_0$ do punktu Pozytywnego (klasa y=1)
+
+$d_-$  najmniejsza odległość od hiperpłaszczyzny rozdzielającej $H_0$ do punktu Negatywnego (klasa y=-1)
+
+Szerokość marginesu 
+$d= d_+ + d_-$
+
+Odległość hiperpłaszczyzn $H_0$ oraz $H_1$:
+
+$\frac{|\mathbf{w}^T\mathbf{x} +b|}{||\mathbf{w}||}=\frac{1}{||\mathbf{w}||}$
+
+a całkowita odległość: 
+
+$d= \frac{2}{||\mathbf{w}||}$
+
+
+### Zadanie optymalizacji
+
+Aby zmaksymalizować szerokość marginesu, należy zminimalizować $||\mathbf{w}|| \to min$  
+
+przy ograniczeniach: 
+
+
+$\mathbf{w}^T \mathbf{x} +b \geq 1$ gdy $y_i=1$
+
+
+$\mathbf{w}^T\mathbf{x} +b  \leq -1$ gdy $y_i=-1$,
+
+ 
+które można zapisać : 
+
+$y_i ( \mathbf{w}^T {x_i} +b)  \geq 1$ dla $i=1 \cdots n$
+
+
+Hiperpłaszczyzna rozdzielająca: 
+które punkty należy uwzględnić ? 
+- wszystkie (regresja liniowa, sieci neuronowe)
+- tylko "kłopotliwe", leżące blisko  granicy  decyzyjnej : SVM 
+
+
+W rzeczywistości minimalizujemy: 
+$\frac{||\mathbf{w}||^2}{2}$  
+
+
+```{r} 
+library(ggplot2)
+library(ggrepel)
+
+
+x1<-runif(50)*20
+x2<-runif(50)*20
+
+
+
+
+y<- ifelse( (x1 + 2*x2-30 > 0 ), 1, -1)
+beta<-c(1,2,-30)
+y<- as.factor(ifelse( (x1 + 2*x2-30 > 0 ), 1, -1))
+df<-data.frame(x1,x2,y)
+df$id<- as.numeric(row.names(df))
+p<- ggplot(df, aes(x=x1))+geom_point(aes( y=x2,shape=as.factor(y) ,color=as.factor(y)))  +scale_shape_manual(values=c(1,2)) + geom_abline(intercept=15, slope=-0.5) + geom_text_repel(aes(y=x2,label=id,color=as.factor(y)),size=3)
+p
+
+```
+
+
+
+
+##Klasy separowalne liniowo 
+```{r} 
+library(e1071)
+
+
+m <- svm(y~x1+x2, df, kernel="linear",cost=100000, type="nu-classification", nu=0.04)
+summary(m)
+
+
+#indeksy punktow (wektory podpierajace)
+#index of resulting support vectors in the data matrix 
+m$index
+#negative intercept 
+m$rho
+#the corresponding coefficients times the training labels
+m$coefs
+
+
+svm<-df[m$index,]
+svm_pos<-svm[svm$y==1,]
+svm_pos
+svm_neg<-svm[svm$y==-1,]
+head(svm_neg)
+## rownanie pierwszej prostej 
+
+if (nrow(svm_pos) > nrow(svm_neg)) {
+  idxs<-as.vector(svm_pos[,4])
+  idx<-svm_neg[1,4]
+} else {
+  idxs<-as.vector(svm_neg[,4])
+  idx<-svm_pos[1,4]
+}
+
+regr<-lm(x2~x1, df[idxs,])
+coef<-coefficients(regr)
+beta0 <-coef[1]
+beta1 <-coef[2] 
+
+
+ggplot(df, aes(x=x1)) + 
+   geom_point(aes( y=x2,shape=as.factor(y) ,color=as.factor(y)))  +
+   scale_shape_manual(values=c(1,2)) +
+   geom_abline(intercept=beta0, slope=beta1)  +
+   geom_text_repel(aes(y=x2,label=id,color=as.factor(y)),size=3)
+
+
+#rownanie drugiej prostej 
+
+df[idx,]
+beta02 <- df[idx,2] - beta1*df[idx, 1]
+
+
+beta0
+beta02
+beta1
+
+
+ggplot(df, aes(x=x1))+geom_point(aes( y=x2,shape=as.factor(y) ,color=as.factor(y)))  + scale_shape_manual(values=c(1,2)) +  geom_abline(intercept=beta02, slope=beta1, color="#00BFC4") +  geom_text_repel(aes(y=x2,label=id,color=as.factor(y)),size=3) +  geom_abline(intercept=beta0, slope=beta1, color="#F8766D")
+
+
+
+```
+
+
+##Klasy liniowo nieseparowalne 
+Jeżeli nie ma płaszczyzny rozdzielającej, przyjmujemy, że część punktów może się znaleźć "po drugiej stronie", jednak wiąże się to z pewną karą $\xi$  przypisaną dla takiego punktu. 
+Do funkcji kryterium wprowadzona jest wówczas funkcja kary: 
+
+$\frac{||\mathbf{w}||^2}{2} + C*\sum_{i=1}^{n}\xi_i$  
+
+a ograniczenia przyjmują postać: 
+
+$y_i ( \mathbf{w}^T {x_i}+b)  \geq 1 -\xi_i$ dla $i=1 \cdots n$
+
+$\xi_i \geq 0$ dla $i=1 \cdots n$
+
+
+##Nieliniowe granice klas
+
+
+Klasyfikator z liniowym rozgraniczeniem klas może być przedstawiony w postaci iloczynu skalarnego: 
+
+$f(x)=\beta_{0} + \sum_{i=1}^{n}\alpha_{i} \langle x, x_{i} \rangle$ , gdzie 
+
+$\langle x_{i}, x_{k} \rangle$ oznacza iloczyn skalarny wektorów: 
+
+$$\langle x_{i}, x_{k} \rangle = \sum_{j=1}^{p} x_{i,j}x_{k,i}$$
+Współczynniki $\alpha_{i}$ przyjmują niezerowe wartości tylko dla wektorów nośnych , a więc jeżeli  przez $\mathbf{SV}$ oznaczymy  zbiór indeksów  odpowiadających wektorom nośnym to: 
+
+$$f(x)=\beta_{0} + \sum_{i \in \mathbf{SV} }\alpha_{i} \langle x, x_{i} \rangle$$ 
+Jeżeli iloczyn skalarny dwóch wektorów uogólnimy do funkcji K : 
+$K(x_{i}, x_{k})$ , zwanej jądrem (kernel), która określa podobieństwo dwóch obserwacji: 
+
+
+$$f(x)=\beta_{0} + \sum_{i \in \mathbf{SV} } \alpha_{i} K(  x, x_{i})$$
+
+
+###Kernels 
+
+####Polynomial kernel 
+$$K(x_{i},x_{k}) = (1 + \sum_{j=1}^{p} x_{i,j} x_{k,j})^d $$ 
+
+####Radial kernel 
+
+$$K(x_{i},x_{k}) = exp(-\gamma \sum_{j=1}^{p}(x_{i,j} – x_{k,j})^2 )$$
+
+
+```{r}
+require(e1071)
+require(ElemStatLearn) 
+library(ggplot2)
+#Loading the data
+attach(mixture.example) 
+
+dataset<-mixture.example
+
+df<-data.frame("x1"=dataset$x[,1], "x2"=dataset$x[,2], "y"=dataset$y)
+
+head(df)
+
+
+p<- ggplot(df, aes(x=x1))+geom_point(aes( y=x2,shape=as.factor(y) ,color=as.factor(y)))  +scale_shape_manual(values=c(1,2)) + geom_abline(intercept=15, slope=-0.5) 
+p
+
+#
+```
+
+```{r}
+radial.svm=svm(factor(y) ~ .,data=df,kernel="radial",cost=100,scale=F)
+
+support.vectors<-data.frame(radial.svm$SV)
+#dodajemy identyfikator klasy 
+support.vectors<-merge(support.vectors, df, by=c("x1", "x2"))
+head(support.vectors)
+
+
+#wygenerujemy siatkę punktów  
+xgrid=expand.grid(x1=px1,x2=px2) #generating grid points
+ygrid=predict(radial.svm,newdata = xgrid) #ygird consisting of predicted Response values
+
+
+#Wykres z zaznaczonymi wektorami podpierajacymi: 
+df1<-data.frame("x1"=xgrid$x1, "x2"=xgrid$x2, "y"=ygrid)
+
+p<- ggplot(df, aes(x=x1))+geom_point(aes( y=x2,shape=as.factor(y) ,color=as.factor(y)))  
+
+p<- p +   geom_point( data=df1, aes(x=x1, y=x2,  color=as.factor(y)),  shape=19  , alpha=0.1)
+
+p<- p +   geom_point( data=support.vectors, aes(x=x1, y=x2 ,color=as.factor(y) ),  shape=3  ,  size = 3, alpha=1)
+
+p
+
+```
+
+###Wybór najlepszych parametrów  dla modelu 
+
+
+```{r}
+
+require(e1071)
+svm_tune <- tune("svm",  data=df, train.x=as.formula("factor(y) ~ ."), kernel="radial", ranges=list(cost=10^(-2:2), gamma=2^(-2:2)))
+
+svm_tune
+
+ygrid=predict(svm_tune$best.model,newdata = xgrid) #ygird consisting of predicted Response values
+
+
+#Wykres z zaznaczonymi wektorami podpierajacymi: 
+df1<-data.frame("x1"=xgrid$x1, "x2"=xgrid$x2, "y"=ygrid)
+p<- ggplot(df, aes(x=x1))+geom_point(aes( y=x2,shape=as.factor(y) ,color=as.factor(y)))  
+p<- p +   geom_point( data=df1, aes(x=x1, y=x2,  color=as.factor(y)),  shape=19  , alpha=0.1)
+p<- p +   geom_point( data=support.vectors, aes(x=x1, y=x2 ,color=as.factor(y) ),  shape=3  ,  size = 3, alpha=1)
+p
+
+```
+

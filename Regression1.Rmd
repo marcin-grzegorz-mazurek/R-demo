@@ -1,0 +1,537 @@
+---
+title: "Regresja liniowa"
+author: "Marcin Mazurek"
+date: '2017-10-20'
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+
+
+#Regresja liniowa
+
+
+Przykładowy zbiór danych: Boston z biblioteki MASS (zrodlo:http://lib.stat.cmu.edu/datasets/boston) 
+```{r, echo=TRUE}
+library(MASS)
+head(Boston)
+```
+
+
+##Założenia regresji liniowej
+
+
+Przypuśćmy, ze wpływy każdej rozpatrywanej zmiennej objaśniającej na zmienną objaśnianą jest liniowy i nie zależy od wartości innych zmiennych. 
+Wartość $y_i$ traktujemy jako wartość zmiennej losowej $Y_i$.  
+
+Liniowy model regresji wielokrotnej:   
+
+$Y_i=\alpha_0+\alpha_1 * x_{1,i} + \alpha_2 * x_{2,i}  + \dots + \alpha_{m,i} * x_{m,i} + \epsilon_i$,  
+
+gdzie:  
+$\alpha_0, \dots, \alpha_m$ nieznane parametry,  
+$\epsilon_i$ dla $i=1,\dots, n$ błędy losowe o takim samym rozkładzie mającym wartość średnią 0 i nieznaną, stałą wariancję $\sigma^2$ 
+
+$n$  liczba obserwacji   
+$m$  liczba zmiennych niezależnych   
+$p=m+1$ liczba parametrów modelu   
+
+##Budowa modelu 
+
+### Podzial zbioru na ciag uczący   i testowy 
+
+
+```{r regr_partition, echo=TRUE}
+
+train.idx <-sample (1:nrow(Boston), 0.7*nrow(Boston), replace = FALSE)
+train<-Boston[train.idx, ]
+test<-Boston[-train.idx, ]
+
+nrow(train)
+nrow(test)
+#
+#model$fitted.values
+#plot(model$fitted.values, df$medv)
+#plot(model)
+#model.matrix.default()
+```
+
+### Model regresji liniowej
+
+
+```{r model, echo=TRUE}
+
+model<-lm(medv~age, data=train)
+summary(model)
+
+```
+
+Model:   
+* Wartości współczynników (estymatory)   
+* Błąd standardowy współczynników  
+* Wartość statystyki t  
+* p-value dla współczynników   
+
+Ocena jakości modelu   
+* Istotność parametrów  
+* Wartość współczynnika $R^2$  
+
+### Rozkład całkowitej zmienności zmiennej objaśnianej
+
+* Całkowita suma kwadratów (total sum of squares)
+
+
+
+
+$SST=\sum_{i=1}^{n}(y_i-\overline{y})^2$
+
+```{r, echo = TRUE}
+
+y_mean <-mean(train$medv)
+SST <- sum((train$medv - y_mean)^2)
+SST
+
+
+```
+
+
+$SST = SSE + SSR$  
+Równość powyższa zachodzi w sytuacji, gdy $y_i$ oznaczają wartości przewidywane obliczne na podstawie prostej MNK  i nie musi być spełniona dla innej prostej przybliżającej chmurę punktów. 
+
+
+* Suma kwadratów błędów (error sum of squares)  
+$SSE=\sum_{i=1}^{n}(y_i-\hat{y_i})^2$
+
+Indeks zmienności wartości $y_i$ nie wyjaśnionej przez zależność liniową. 
+
+```{r, echo = TRUE}
+
+
+SSE <- sum ((train$medv - model$fitted.values )^2)
+SSE
+
+SSE <-sum(model$residuals^2)
+SSE
+
+```
+
+
+* Regresyjna suma kwadratów (regression sum of squares)  
+$SSR=\sum_{i=1}^{n}(\hat{y_i}-\overline{y})^2$
+
+
+
+```{r, echo = TRUE}
+
+
+SSR <- sum (( model$fitted.values - y_mean )^2)
+SSR
+
+SSE + SSR 
+```
+
+
+* Współczynnik determinacji $R^2$  
+$R^2=\frac{SSR}{SST}=1-\frac{SSE}{SST}$
+
+```{r, echo = TRUE}
+
+R2<- SSR/SST
+R2
+```
+* Skorygowany współczynnik determinacji   - uwzględnia liczbę zmiennych w modelu 
+
+
+```{r, echo = TRUE}
+
+n<-nrow(train)
+p<-2
+R2_adj<- 1 - (1-R2)*(n-1)/(n-p)
+R2_adj
+```
+
+* MSR  
+
+$MSR=\frac{SSR}{m}$
+
+```{r, echo = TRUE}
+
+MSR<- SSR/(1)
+MSR
+```
+
+
+* Błąd średniokwadratowy,  MSE (Mean Square Error), SE (Standard Error)
+
+
+Nieobciążony estymator wariancji $\sigma^2$ 
+
+$MSE=\frac{SSE}{n-p}$
+
+```{r, echo = TRUE}
+
+MSE<- SSE/(n-p)
+MSE
+
+
+```
+
+* Statystyka F 
+
+Badanie liniowej zależności pomiędzy zmienną celu a zbiorem zmiennych objaśniających traktyowanych jako całość. 
+Hipoteza zerowa: 
+$H_{0}: \alpha_1=\alpha_2=\dots=\alpha_m=0$  
+Hipoteza alternatywna: 
+$H_{1}:$ istnieje przynajmniej jeden współczynnik $\alpha_i \ne 0$
+
+Statystyka F:  
+
+$F=\frac{MSR}{MSE}$
+
+ma rozkład F-Snedeckora z parametrami p-1, n-m. 
+
+
+```{r, echo = TRUE}
+
+F<-MSR/MSE
+F
+
+```
+
+
+Rozkład gęstości i dystrybuanta: 
+
+```{r, echo = TRUE}
+
+F<-MSR/MSE
+F
+
+par(mfrow=c(1,2))
+
+plot(seq(0,20,0.1), df(seq(0,20,0.1),p-1,n-p), xlab="X", ylab="f(x)" )
+
+plot(seq(0,20,0.1), pf(seq(0,20,0.1),p-1,n-p),xlab="X", ylab="F(x)" )
+```
+
+
+Obszar krytyczny:
+${F: F \ge f_{1-\alpha, p-1, n-p}}$
+
+
+na poziomie istotności 0.05: 
+```{r, echo = TRUE}
+
+
+
+qf(0.95, p-1, n-p)
+
+
+```
+Ponieważ F nie wpada do przedziału krytycznego, zatem hipotezę zerową należy odrzucić.
+
+* p-value modelu 
+
+Jaki jest graniczny poziom istotności, przy którym hipoteza zerowa zostałaba odrzucona ? 
+
+
+```{r, echo = TRUE}
+
+pf(F, p-1, n-p,     lower.tail=FALSE)
+
+```
+
+
+### Weryfikacja hipotezy o istotności współczynników 
+
+Współczynniki i błędy standardowe współczynników: 
+
+```{r, echo = TRUE}
+alfa<-model$coefficients
+alfa
+
+
+alfa_se<-sqrt(diag(vcov(model)))
+alfa_se
+
+
+
+
+```
+#### Statystyka t 
+
+
+$t_i=\frac{\alpha_i}{SE_{\alpha_{i}}}$
+
+```{r, echo = TRUE}
+t<-alfa/alfa_se
+t
+
+```
+
+#### Hipoteza zerowa 
+
+Hipoteza zerowa: 
+$H_{0}: \alpha_i=0$  
+
+Hipoteza alternatywna: 
+$H_{1}: \alpha_i \neq  0$  
+
+Statystyka testowa t przy ma przy prawdziwości hipotezy H0 rozkład $T_{n-2}$
+
+```{r}
+plot(seq(-5,5,0.1), dt(seq(-5,5,0.1), df=n-p), xlab="x", ylab="f(x)", main="Gęstość rozkładu T-Studenta")
+
+
+```
+
+
+Obszar krytyczny: 
+
+$\{{t: |{t}| \ge t_{{1-\frac{\alpha}{2}},n-p}}\}$
+
+
+Obszar krytyczny na poziomie istotności 0.05 (granica):  
+
+```{r}
+t_gr<-qt(1-0.05/2, df=n-p)
+t_gr
+
+```
+
+
+
+Ponieważ wartość statystyki t wpada do obszru krytycznego, hipotezę zerową należy odrzucić. Oznacza, to że nie ma podstaw do wnioskowania, że parametr jest nieistotny.  
+
+#### p-value 
+
+```{r}
+p_value<-2*pt(-abs(t), df=n-p, lower.tail=TRUE)
+p_value
+
+```
+
+
+
+
+
+
+##Weryfikacja założeń regresji liniowej  
+###Wartości resztowe (residuals)  
+
+* Różnica między wartością zmiennej objaśniającej Y dla i-tej obserwacji  i odpowiednią wartoscią przewidywaną: 
+
+$e_i=y_i-\hat{y_i}$  
+
+
+
+```{r eval, echo = TRUE}
+
+#wartości prognozowane oraz reszty 
+
+y_pred<- model$fitted.values
+head(y_pred)
+
+#Reszty 
+head(model$residuals)
+
+y<-train$medv
+e<- y - y_pred
+
+head(e)
+
+```
+
+
+
+###Obserwacje odstające (outliers, leverage)
+
+Wpływ (leverage, hat-value): 
+
+$h_i=\frac{1}{n} + \frac{ ( x_i-\overline{x})^2}{\sum_{j=1}^{n} (x_j - \overline{x})^2 }$
+
+
+Hat-Matrix H - projekcja Y na wartości przewidywane
+
+$\hat{y_i}=h_{1,j}* y_1 + h_{2,j}*y_2+ \dots + h_{n,j} *y_n = \sum_{i=1}^n h_{i,j}*y_i$
+
+```{r}
+age_mean<-mean(train$age)
+n<-nrow(train)
+
+h <- 1/n + (train$age - age_mean)^2/sum((train$age - age_mean)^2)
+head(h)
+
+plot(h)
+abline(2/n,0)
+
+
+```
+
+
+
+Obserwacje odstające: 
+
+$h_i > \frac{2*p}{n}$
+```{r}
+h<-hatvalues(model)
+head(h)
+
+```
+
+
+
+
+
+
+```{r}
+plot(h, rstandard(model), xlab ="Leverage", ylab="Standardized residuals", main="Residuals vs Leverage")
+
+```
+
+###Obserwacje wpływowe (influential observations)
+
+* Obserwacja wpływowa to taka, której usunięcie ze zbioru danych powoduje dużą zmianę wektora estymatorow regresji.
+* Obserwacje odstające mogą być, ale nie muszą wpływowymi.
+* Odleglość Cooke'a -  wpływ, jaki na prognozę znanych wartości zmiennej objaśnianej ma usunięcie ze zbioru danych i-tej obserwacji: 
+
+
+$D_i=\frac{\sum_{j=1}^{n}(\hat{Y_j}-\hat{Y_{j(i)}}) }{m*S^2}$,  
+gdzie  
+$\hat{Y_{j(i)}}$ jest wartością przewidywaną dla j-tej obserwacji,  obliczoną na podstawie danych z usuniętą obserwacją i-tą. 
+
+
+Diagram Cooke'a
+
+```{r}
+
+d<-cooks.distance(model)
+head(d)
+
+
+plot(d)
+
+
+```
+
+
+
+
+
+***
+
+### Homoskedastyczność czynnika losowego
+
+Rozrzut punktów wokół wartości prognozowanych, sprawdzenie stałości wariancji składnika losowego (wykres scale-location)
+
+```{r}
+
+plot(model$fitted.values, model$residuals, xlab="Fitted values", ylab=" SQRT standardized residuals")
+
+```
+```{r}
+
+plot( model$fitted.values, sqrt(rstandard(model)), xlab="Fitted values", ylab="Residuals")
+
+```
+
+
+
+###Wykresy kwantylowe - weryfikacja rozkładu normalnego składnika losowego
+
+
+* Rezyduum ustandaryzowane (Standardized Residuals)
+
+
+$e_{i}^{'}=\frac{e_i}{MSE*\sqrt{1-h_i}}$
+```{r , echo = TRUE}
+
+
+
+e_std <- rstandard(model)
+head(e_std)
+
+
+e_std <- e/(MSE*sqrt(1-h))
+head(e_std)
+
+```
+
+
+```{r}
+
+
+eq<-quantile(e_std, seq(0.01,0.99, 0.01))
+tq<-qnorm(seq(0.01,0.99, 0.01))
+
+
+plot(tq, eq, xlab="Theoretical quantiles", ylab="Standardized residuals quantiles")
+
+```
+
+### Diagnostyka  modelu 
+
+
+
+```{r}
+par(mfrow=c(2,2))
+plot(model)
+
+```
+
+
+## Regresja wieloraka 
+### Model 
+
+```{r}
+
+model<-lm(medv~age+lstat+rad+crim, data=train)
+summary(model)
+
+
+```
+
+### Ocena jakości modelu na zbiorze testowym 
+
+```{r}
+
+y_pred_test<- predict(model, test)
+
+plot(y_pred_test, test$medv, xlab="Actual", ylab="Predicted")
+abline(0,1)
+
+```
+
+
+*MAE - Mean Absolute Error 
+
+$MAE = \frac{1}{n}{\sum_{j=1}^{n}|y_j-\hat{y_j}|}$
+
+
+* RMSE Root Mean Square Error  
+Mean Squared Prediction Error
+```{r}
+
+MAE <- (sum(abs(y_pred_test -  test$medv)) / nrow(test))
+MAE 
+```
+
+
+
+$RMSE = \sqrt {\frac{1}{n}\sum_{j=1}^{n}(y_j-\hat{y_j})^2}$
+
+```{r}
+
+RMSE <- sqrt (sum((y_pred_test -  test$medv)^2) / nrow(test))
+RMSE 
+```
+
+
+
+
+
+

@@ -1,0 +1,266 @@
+---
+title: " Bootstratp"
+author: "Marcin Mazurek"
+date:  '2017-11-30'
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+
+
+
+
+#Repróbkowanie
+
+Metoda estymacji błędu predykcji. 
+
+##Zbiór testowy wyodrębniony z próby prostej: 
+1. Klasyczne podejśćie:  Jeżeli dysponujemy wystarczająco liczną próbą, wyodrębniamy z niej ciąg walidujący (testowy). 
+
+```{r}
+library(ISLR)
+head(Auto)
+
+train.idx <- sample(1:nrow(Auto), round(0.7*nrow(Auto)))
+train<-Auto[train.idx,]
+test<-Auto[-train.idx,]
+
+lmfit<-glm(mpg~horsepower+cylinders+ weight, data=train)
+summary(lmfit)
+
+mse=mean((test$mpg - predict(lmfit, test))^2)
+
+#Estymacja błędu predykcji na podstawie ciągu testowego: 
+mse
+```
+
+
+##Cross Validation
+Zbiór dzielony jest na ${k}$ partycji. 
+
+K-fold : jedna z ${k}$ partycji jest używana do  testowania, pozostałe ${k-1}$ partrycje służą do budowy modelu. Procedura powtarzana ${k}$ - krotnie  (dla każdej partycji  wykorzystywanej jako testowa)
+
+LOOCV: szczególny przypadek K-fold, w którym liczba partycji odpowiada liczbie obserwacji. 
+
+###Leave-One-Out 
+
+
+```{r}
+se_total=0
+for (i in 1:nrow(Auto)){
+  train = Auto[-i,]
+  test = Auto[i,] 
+  lmfit<-glm(mpg~horsepower+cylinders+ weight, data=train)
+  se=(test$mpg - predict(lmfit, test))^2
+  se_total = se_total + se 
+}
+ mse = se_total / nrow(Auto)
+ mse 
+```
+
+To samo działanie z wykorzystaniem biblioteki boot: 
+
+
+```{r}
+library(ISLR)
+library(boot)
+lmfit<-glm(mpg~horsepower+cylinders+ weight, data=Auto)
+
+#LOOCV: 
+k=nrow(Auto)
+m<-cv.glm(data=Auto, lmfit, K=k)
+
+#Błąd:
+mse = m$delta[1]
+mse 
+```
+
+
+
+###k-fold Cross validation 
+
+
+
+```{r}
+
+lmfit<-glm(mpg~horsepower+cylinders+ weight, data=Auto)
+
+#LOOCV: 
+m<-cv.glm(data=Auto, lmfit, K=5)
+
+#Błąd wyznaczony w oparciu o średnią z 5: 
+mse = m$delta[1]
+mse 
+
+
+
+
+```
+
+
+
+
+##Bootstrap
+
+pull oneself up by one's bootstrap  - wydobyć się z opresji używając własnych sił 
+
+Metoda szacowania rozkładów estymatorów, w sytuacji gdy nie  nakładamy żadnych założeń na rozkład w zmiennych w populacji 
+
+1. Nie znamy rozkładu F 
+2. Dysponujemy jedynie pojedynczą realizacją prostej próby losowej z tego rozkładu
+
+###Estymacja rozkładu statystyki metodą bootstrap 
+
+
+
+Ogólny zarys procedury: 
+
+Sampling distribution statystyki S: 
+
+$S=S(x_1, x_2, \cdots, x_n)$
+
+w oparciu o prostą próbę losową:
+
+$\mathbf{X}=(X_1, X_2, \cdots, X_n)$
+
+1. Utwórz próbki poprzez zwracanie z losowaniem:    $\mathbf{x_1^{*}},  \cdots, \mathbf {x_M^{*}}$  : próba boostrap
+
+2. Wyznacz interesującą statystykę $S(\mathbf{x_1^{*}}), \cdots,S(\mathbf{x_M^{*}})$ dla każdej próbki. Rozkład statystyki otrzymanej na próbkach to bootstrap distribution. 
+
+3. Bootstrap distribution daje nam informację o rozkładzie cechy S
+
+
+
+
+### Bootstrap  - szacowanie rozkładów estymatorów
+
+```{r}
+library(ISLR)
+head(Auto)
+lmfit<-glm(mpg~horsepower+cylinders+ weight, data=Auto)
+summary(lmfit)
+coef<-matrix(nrow=30, ncol=4)
+nrow(Auto)
+for (i in 1:30){
+  index <- sample(1:nrow(Auto), nrow(Auto), replace=TRUE) 
+  train <- Auto[index,]
+  test  <- Auto[-index,]
+  #uczenie sieci , linear,output =FALSE, gdyż zmienne binarne
+  lmfit<-glm(mpg~horsepower+cylinders+ weight, data=train)
+  coef[i,]<-lmfit$coefficients
+}
+
+coefficients<-colMeans(coef)
+coef_std <- apply(coef, MARGIN =2, FUN=sd )
+
+coefficients
+coef_std
+
+
+hist(coef[,1])
+head(Auto)
+
+
+train<-Auto
+lmfit<-glm(mpg~horsepower+cylinders+ weight, data=train)
+summary(lmfit)
+```
+
+
+
+
+###Klasyfikacja przy pomocy sieci neuronowych 
+```{r}
+library(neuralnet)
+library(nnet)
+data(iris)
+
+
+#one-hot encoder - kodowanie binarne zmiennej 
+iris$setosa<-  ifelse(iris$Species == "setosa",1,0)
+iris$versicolor<-ifelse(iris$Species == "versicolor",1,0)
+iris$virginica<-ifelse(iris$Species == "virginica",1,0)
+
+#zamiast tego kodu można użyć z biblioteki nnet: 
+species_enc<-class.ind(iris$Species)
+
+
+#normalizujemy atrybuty wejsciowe i dolaczamy trzy binarne kolumny wyjsciowe 
+iris<-cbind(scale(iris[,1:4]), iris[,6:8])
+
+
+#przyklad budowy sieci neuronowej  z dwiema ukrytymi warstwami neuronow 
+f<-as.formula("setosa+versicolor+virginica~Sepal.Width + Sepal.Length + Petal.Width + Petal.Length")
+nn<-neuralnet(f, hidden=c(1), data=iris, linear.output=FALSE)
+plot(nn)
+pred<-compute(nn,iris[,1:4])$net.result
+pred_idx<-max.col(pred)
+actuals<-iris[,5:7] 
+actuals_idx<-max.col(actuals)
+#dokladnosc modelu procentowa: dla zgodny rekordow mjets TRUE(1), dla błędaów FALSE(0)
+accuracy<- mean(actuals_idx==pred_idx)
+accuracy
+
+```
+
+
+### Bootstrap 0.632 w klasyfikacji 
+
+$n$ - liczba obserwacji w próbie danych, losujemy ze zwracaniem $n$ obserwacji. 
+
+Prawdopodobieństwo nie wylosowania obserwacji wynosi: 
+$(1- \frac{1}{n})^n \approx e^{-1} \approx  0.368$, 
+
+więc oczekiwana liczba unikalnych obserwacji w wulosowanym zbiorze to $0.632n$. 
+
+Szacowanie dokładności jest wykonywane mając $b$ próbek bootstrapowych, niech $acc_{i}$ będzie estymatą  dokładności klasyfikacji dla ${i}$ - tej próbki bootstrapowej. 
+
+$acc_{boot} = \frac{1}{b} \sum_{i=1}^{b}(0.632*acc_{i}+0.368*acc_i)$
+
+Wariancja może być oszacowana na podstawie wariancji estymatora
+
+
+```{r}
+#przyklad #0.532 bootstrap do szacowania błędu klasyfikacji 
+acc_table = NULL 
+
+for (i in 1:10){
+  index <- sample(1:nrow(iris), nrow(iris), replace=TRUE) 
+  train <- iris[index,]
+  test  <- iris[-index,]
+  #uczenie sieci , linear,output =FALSE, gdyż zmienne binarne
+  nn<-neuralnet(f, hidden=c(1),  data=iris, linear.output = FALSE)
+  #wyznaczenie prognoz
+  pred<-compute(nn,test[,1:4])$net.result
+  pred_idx<-max.col(pred)
+  #aktualne 
+  actuals<-test[,5:7] 
+  actuals_idx<-max.col(actuals)
+  
+  #udzial dobrze zaklasyfikowanych: 
+  accuracy<- mean(actuals_idx==pred_idx)
+  acc_table[i]= accuracy
+}
+
+acc_table
+
+#kalkulacja bledu predykcji 
+
+
+avg_acc<- mean(acc_table)
+avg_acc
+
+acc_boot<-mean(0.632*acc_table+0.368*accuracy)
+acc_boot
+
+
+```
+
+
+
+

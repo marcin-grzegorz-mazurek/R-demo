@@ -1,0 +1,286 @@
+---
+title: " PCA - Metody redukcji wymiarow"
+author: "Marcin Mazurek"
+date:  '2017-11-30'
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+
+
+
+
+#PCA - Principal Component Analysis Analiza składowych głównych
+
+
+##Wartości własne macierzy
+Skalar $\lambda$ naywamy wartością własną macierzy A jeżeli  istnieje niezerowy wektor $v$, taki że: 
+
+$Av = \lambda v$
+
+Wektor $v$ nazywamy wektorem własnym odpowiadającym wartości własnej $\lambda$
+
+
+Następujące warunki są równoważne: 
+
+(a) $\lambda$ jest wartością własną macierzy A 
+
+(b) układ równań $(A-\lambda I)v=0$ ma niezerowe rozwiązanie 
+
+(c) $det(A-\lambda I)=0$
+
+
+```{r}
+A <- matrix(c(1,2,0,0,2,0,-2,-2,-1), nrow=3, ncol=3, byrow=TRUE)
+A 
+eigen(A)
+
+#Wartości własne: 
+lambda<-eigen(A)$values
+v<-eigen(A)$vectors
+
+
+#pierwszaw wartość własna 
+A %*% v[,1]
+lambda[1]*v[,1]
+det(A - lambda[2]*diag(3))
+
+#druga wartość własna 
+A %*% v[,2]
+lambda[2]*v[,2]
+det(A - lambda[2]*diag(3))
+
+
+#trzecia wartość własna 
+A %*% v[,3]
+lambda[3]*v[,3]
+det(A - lambda[3]*diag(3))
+
+```
+
+##Ślad macierzy 
+
+```{r}
+sum(lambda)
+```
+
+##Macierz kowariancji 
+Kowariancja dwóch zmiennych: 
+
+$Cov(X,Y) = \frac{1}{n}\sum_{i=1}^{n}(x_{i}-\bar{x})(y_{i}-\bar{y})$
+
+Estymator nieobciążony:  
+
+$Cov(X,Y) = \frac{1}{n-1}\sum_{i=1}^{n}(x_{i}-\bar{x})(y_{i}-\bar{y})$
+
+```{r}
+
+#kowariancja pomiędzy pierwszą i drugą kolumną macierzy A 
+sum( (A[,1] - mean(A[,1])) * (A[,2] - mean(A[,2])))/(nrow(A)-1)
+#lub 
+cov(A[,1], A[,2])
+
+#kowariancja pomiędzy pierwszą i trzecią kolumną macierzy A 
+cov(A[,1], A[,3])
+cov(A)
+```
+##Ślad macierzy 
+
+$tr(A) = \lambda_{1} + \lambda_{2} + \cdots + \lambda_{p}$
+
+##Przykład 
+
+```{r}
+library(ISLR)
+df<-USArrests
+df.scaled<-scale(df)
+mean(df.scaled[,1])
+
+#macierz kowariancji zmiennych 
+
+S<-cov(df.scaled)
+S
+eigen(S)
+pca<-prcomp(df.scaled)
+
+
+```
+##PVE - Proportion of variance explained 
+Całkowita wariancja zmiennych ustandaryzowanych:  
+
+$\sum_{j=1}^{p} Var(X_j) = \sum_{j=1}^{p}\frac{1}{n-1}\sum{x_{ij}^2}$
+
+```{r}
+#estymator wariancji 
+sum(df.scaled^2)/(nrow(df.scaled)-1)
+
+#wariancja  skladowych atrybutow 
+apply(df.scaled,2,var)
+```
+
+
+$\mathbf{S}$ macierz kowariancji z próby 
+
+Pierwsza składowa główna to unormowana liniowa kombinacja cech o największej wariancji: 
+
+$z_{1}=\phi_{11}x_1 + \phi_{21}x_2 + \cdots + \phi_{p1}x_p = \mathbf{\Phi'_{1}}\mathbf{X}$
+
+$\phi_{11} , \phi_{21} , \cdots , \phi_{p1}$ - ładunki pierszej składowej 
+
+Kwadrat długości wynosi 1, zapewnia jednoznaczność składowej głównej: 
+
+$\sum_{j=1}^{p} \phi_{j1}^2=1$ ,czyli $\mathbf{\Phi^{`}_{1}}\mathbf{\Phi_{1}}=1$
+
+Wariancja z próby 
+
+$S_{z_{1}}^2 = \mathbf{\Phi^{`}_{1}}\mathbf{S}\mathbf{\Phi_{1}}$
+
+
+Wektor, który makysmalizuje wariancję jest wektorem charakterystycznym odpowiadającym największej wartości własnej macierzy  $\mathbf{S}$ lub inaczej największemu pierwiastkowi równiania  wyzancznikowego: 
+
+$|\mathbf{S} - \lambda \mathbf{I} |= 0$
+
+```{r}
+
+
+library(ggplot2)
+library(ggrepel)
+fi<-prcomp(df.scaled)[[2]]
+fi1<-as.matrix(fi[,1])
+
+z1<-df.scaled%*%fi1
+head(z1)
+
+plot(z1)
+var(z1)
+
+z1df<-data.frame(state<-rownames(z1),z1)
+p<- ggplot(z1df, aes(x=z1, y=0))+geom_point() + geom_text_repel(aes(y=0,label=state),size=3)
+p
+
+```
+
+
+##Druga składowa główna: 
+Kombinacja liniowa:  
+
+$z_{2} = \mathbf{\Phi_{2}}\mathbf{x}$
+
+taka, że jest nieskorelowana z $z_{1}$, ma maksymalną wariancję oraz spełnia warunek: 
+
+
+$Cov(z_{2}, z_{1})=0$
+
+co implikuje, że: 
+$\mathbf{\Phi_{2}^{`}}\mathbf{\Phi_{1}}=0$
+
+
+Wariancja z próby 
+$S_{z_{2}}^2 = \mathbf{\Phi^{`}_{2}}\mathbf{S}\mathbf{\Phi_{2}}$
+
+Poszukujemy wektora maksymalizującego wariancję z próby przy dodatkowych warunkach: 
+$\mathbf{\Phi^{`}_{2}}\mathbf{\Phi_{2}}=1$
+
+oraz 
+
+$\mathbf{\Phi^{`}_{2}}\mathbf{\Phi_{1}}=0$
+
+
+
+
+```{r}
+
+fi2<-as.matrix(fi[,2])
+
+z2<-df.scaled%*%fi2
+head(z2)
+
+var(z2)
+
+z12df<-data.frame(z1, z2)
+head(z12df)
+p<- ggplot(z12df, aes(x=z1, y=z2))+geom_point() + geom_text_repel(aes(label=rownames(z12df)),size=3)
+p
+
+```
+
+##Kolejne składowe główne , własności 
+
+Składowe główne są wzajemnie ortogonalne t.j. 
+
+$\mathbf{\Phi^{`}_{j}}\mathbf{\Phi_{k}}=0$   dla wszystkich $j \neq k$
+
+
+Wariancja z próby każdej składowej głównej jest równa odpowiedniej wartości własnej
+
+
+
+Sumwa wariancji z próby składowych głównych jest równa sumie wariancji z próby zmiennych pierwotnych
+$tr(S)$
+
+
+##Pomijanie składowych głównych
+Składowe nieistotne można pominąć:
+- procent wariancji ()
+- wykres osypiskowy (piargowy)
+
+```{r}
+
+
+sd<-pca[[1]]
+var<-sd^2
+eigen(S)$values
+
+variance.pca<-data.frame("var"=var, "cumvar"=cumsum(var) )
+variance.pca$pct_total<-var/sum(var)
+variance.pca$cum_pct_total<-variance.pca$cumvar/sum(var)
+
+head(variance.pca)
+#wykres osypiskowy
+plot(var, type="l")
+```
+
+
+## Przykład  zastosowania przy zmniejszonym rozmiarze zadania 
+```{r}
+library(e1071)
+data(iris)
+iris
+# model_normal<-glm(NSP1 ~ . -FileName -Date -SegFile -CLASS -NSP -NSP2 -NSP3, data=train, family=binomial)
+regr<-naiveBayes( Species~., data=iris, family="binomial")
+regr
+pSpecies<-predict(regr, iris, type="class")
+head(pSpecies)
+
+
+table(iris$Species,pSpecies)
+
+
+
+## redukujemy 
+
+head(iris)
+
+pca.iris<-prcomp(iris[,1:4], scale=TRUE)
+plot(pca.iris)
+#pca.iris$rotation[,1]%*%iris[1,1:4]
+
+head(scale(iris[,1:4]))
+#Wektor 
+head(pca.iris$x)
+iris.ds.pca<-data.frame(pca.iris$x)
+iris.ds.pca$Species<-iris$Species
+head(iris.ds.pca)
+
+nb.pca<-naiveBayes(Species~PC1+PC2+PC3+PC4, data=iris.ds.pca)
+pSpecies<-predict(nb.pca, iris.ds.pca, type="class")
+
+table(iris$Species,pSpecies)
+
+```
+
