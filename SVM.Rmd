@@ -125,6 +125,69 @@ które punkty należy uwzględnić ?
 W rzeczywistości minimalizujemy: 
 $\frac{||\mathbf{w}||^2}{2}$  
 
+### Rozwiązania zadania optymalizacji z wykorzystaniem mnożników Lagrangea'
+
+Rozwiązanie zadania z wykorzystaniem metody mnożników Lagrange'a: 
+
+$L=L(\mathbf{w}, w_0; \boldsymbol{\alpha})=\frac{1}{2}\mathbf{w}'\mathbf{w}-\sum_{j-1}^{n}\alpha_{j}[y_j(\mathbf{w}'\mathbf{x_{j}}+w_{0})-1]$
+
+gdzie 
+
+$\boldsymbol{\alpha}=(\alpha_{1}, \alpha_{1}, \dots , \alpha_{n})' \ge 0$
+
+Różniczkując funkcję Lagrange'a kolejno względem $w$ oraz $w_{0}$ oraz przyrównując pochodne cząstkowe do zera, otrzymujemy odpowiednio równości: 
+
+
+$\mathbf{w}=\sum_{j=1}^{n} \alpha_{j}y_{j}\mathbf{x_{j}}$
+
+$\sum_{j=1}^{n}\alpha_{j}y_{j} = 0$  ,  $\boldsymbol{\alpha} \ge 0$
+
+
+Podstawiając do równania powyżej mamy: 
+
+$L_{D}(\boldsymbol{\alpha})=\sum_{j=1}^{n}\alpha_{j}-\frac{1}{2}\sum_{j=1}^{n}\sum_{k=1}^{n} \alpha_{j} \alpha_{k} y_{j} y_{k} \mathbf{x_{j}}'\mathbf{x_{k}}$
+
+Formułując problem w postaci dualnej zwiększamy wymiar przestrzeni parametrów z $p+1$ (wektor wag oraz stała $w_{0}$ ) do $n$ (mnożniki Lagrange'a ), tj. liczebności próby.
+Zaletą formy dualnej jest to, że wyraża kryterium optymalizacji w terminach iloczynów skalarnych obserwacji  $x_{j}$. 
+
+Forma dualna w notacji macierzowej:
+
+$L_{D}(\boldsymbol{\alpha})=\boldsymbol{\alpha}'\mathbf{1}-\frac{1}{2}\boldsymbol{\alpha}'\mathbf{D}\boldsymbol{\alpha}$
+
+gdzie 
+$\mathbf{1}$ jest n-wymiarowym wektorem jednostkowym, 
+
+$\mathbf{D}$ macierzą symetryczną o elementach: 
+
+$d_{j,k}=y_j y_k \mathbf{x_j}'\mathbf{x_k}$ ,  $j,k=1,2,\dots, n$
+
+Szukamy punktu $\boldsymbol{\alpha}$ dla którego funkcja $L_D$ osiąga maksimum przy warunku pobocznym: 
+
+$\boldsymbol{\alpha}'\mathbf{y} = 0$
+
+gdzie 
+
+$\mathbf{y} = (y_1, y_2, \dots , y_n)'$
+
+Zgodnie z warunkami Kuhna-Tuckera rozwiązanie powyższego problemu związane jest z dodatkową zależnością postaci:
+
+$\alpha_{j}[y_j(\mathbf{w}'\mathbf{x_{j}}+w_{0})-1]=0$ dla $j=1,2,\dots, n$
+
+
+Wynika z niej następująca implikacja: 
+
+$\alpha_{j} > 0 \Rightarrow  y_j(\mathbf{w}'\mathbf{x_j}+w_{0}) = 1$
+
+Zatem wszystkie  obserwacje, którym odpowiadają niezerowe mnożniki Lagrange'a leżą na hiperpłaszczyznach kanonicznych. Obserwacje te nazywamy wektorami nośnymi.
+
+$\mathbf{w} = \sum_{ \mathbf{x_{j}} \in  SV} \alpha_{j} y_j \mathbf{x_{j}}$
+
+gdzie SV oznacza zbiór wszystkich wektorów nośnych., 
+
+
+
+
+O ostatecznej postaci funkcji dyksryminacyjnej g decydują wyłącznie wektory nośne.  Im większa wartość $\alpha_{j}$ wektora nośnego $\mathbf{x_{j}}$, tym większy jego wpływ na kształt granic decyzyjnych. Usunięcie z próby którejkolwiek (a nawet wszystkich) z pozostałych obserwacji nie wpłynie na postać hiperpłaszczyzny .
 
 ```{r} 
 library(ggplot2)

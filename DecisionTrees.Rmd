@@ -121,11 +121,13 @@ formula<-as.formula(paste('disease~', predictors_string))
 
 ###prior probabilities 
 
+nrow(train)
 t<-table(heart$disease)
 prop.table(t)
 ```
 
 ##Budowa drzewa klasyfikującego
+
 ###Biblioteka tree 
 
 ####Budowa drzewa 
@@ -140,22 +142,118 @@ plot(heart.tree)
 text(heart.tree, pretty=0)
 
 
+nodes <- heart.tree$frame[[1]]
+print (nodes)
+
+#liczba liści drzewa wynikowego 
+nleaves<- length(nodes[nodes=='<leaf>'])
+
 ```
 
+Liczba liści drzewa:  `r nleaves`
 
-####Błąd klasyfikacji 
+####Błąd klasyfikacji  
+* ciąg trenujący
 
+```{r}
+p_disease<-predict(heart.tree, train )
+number_misclassified <-  sum(max.col(p_disease)!=train$disease)
+accuracy<-mean(max.col(p_disease)==train$disease)
+misclasification_rate<-1-accuracy
+
+```
+ Liczba wszystkich obserwacji :  `r nrow(train)`
+
+ Liczba błędnie zaklasyfikowanych: `r number_misclassified`
+
+  Dokładność: `r accuracy`
+
+
+
+
+* ciąg testowy 
 ```{r}
 p_disease<-predict(heart.tree, test )
 #Stosunek poprawnie zaklsyfikowanych do wszystkich 
+number_misclassified <-  sum(max.col(p_disease)!=test$disease)
 accuracy<-mean(max.col(p_disease)==test$disease)
 misclasification_rate<-1-accuracy
 
-accuracy
+
+
+```
+ Liczba wszystkich obserwacji :  `r nrow(test)`
+
+ Liczba błędnie zaklasyfikowanych: `r number_misclassified`
+
+ Accuracy: `r accuracy`
+
+```{r}
 
 ```
 
 ####Przycinanie (prunning)
+
+Algorytm oparty na  kryterium kosztu - złożoności 
+
+
+$Q(T)$ - miara błędu drzewa, na przykład ułamek błędnych klasyfikacji. 
+Dla każdego nieujemnego współczynnika złożoności $\alpha$   szukamy takiego drzewa zakorzenionego w drzewie pełnym $T_{0}$. że wartość minimalną osiąga funkcja kosztu- złożoności wyrażona wzorem: 
+
+$S_{\alpha}(T) = Q(T) + \alpha * |T|$
+
+Przycinanie drzewa pełnego  $T_{0}$ przebiega w etapach: 
+1.  Skonstruowanie ciągu poddrzew minimalizujących funkcję kosztu złożoności. J-te drzewo buduje się na podstawie dowolnie ustalonej  wartości $\alpha'_{j}$, wybieramy najmniejsze drzewo i oznaczamy je jako $T_{j}$
+Wszystkie możliwe wartośći $\alpha$ można podzielić na rozłączne przedziały, wewnątrz których dla wszystkich $\alpha$ wybierane jest to samo drzewo. 
+
+$T(\alpha) = T_{0}$  dla  $\alpha < \alpha_{1}$
+
+$T(\alpha) = T_{k}$  dla  $\alpha_{k} \le \alpha \le \alpha_{k+1}$, $1 \le k \le K$
+
+$T(\alpha) = T_{K}$  dla  $\alpha \ge \alpha_{K}$
+
+gdzie $K$ jest najmniejszym indeksem, dla którego wybrany został sam korzeń. 
+
+
+2. Wybranie z ciągu $T_{1}, T_{2}, \dots, T_{K}$ drzewa  o najmniejszym ułamku błędów klasyfikacji dla próby testowej, lub w przypadku gdy nie dysponujemy próbą testową wybór najlepszego drzewa odbywa się na podstawie kroswalidacji.
+
+
+Sekwencja drzew budowana w z wykorzystaniem  liczby liści:  
+
+```{r}
+for (leaves_cnt in nleaves:1 ){
+  print(leaves_cnt)
+  pruned.heart.tree = prune.misclass(heart.tree, best=leaves_cnt)
+  print(summary(pruned.heart.tree))
+}
+```
+
+
+Sekwencja drzew budowana w z wykorzystaniem  liczby liści: 
+
+```{r}
+for (alfa in seq(50,-10,-5)){
+  print(alfa)
+  pruned.heart.tree = prune.misclass(heart.tree, k=alfa)
+  print(summary(pruned.heart.tree))
+}
+
+```
+
+```{r}
+  pruned.heart.tree = prune.misclass(heart.tree, best=1)
+  print(summary(pruned.heart.tree))
+
+
+  ##plot(pruned.heart.tree)
+  #text(pruned.heart.tree, pretty=0)
+  
+
+```
+
+
+Wyznaczenie sekwencji drzew - w wyniku otrzymujemy liczbę liści drzewa, odpowiadający jej bład klasyfikacji oraz  graniczną wartość parametru związanego z kosztem związanym z rozmiarem drzewa. 
+
 ```{r}
 
 #przycinanie drzewa: wykreślenie błędu w zależności od liczby liśći 
@@ -163,11 +261,37 @@ accuracy
 cv.heart.tree<-cv.tree(heart.tree, FUN = prune.misclass)
 cv.heart.tree
 
+```
+
+
+Wykres przedstawiający błąd klasyfikacji w zależności od liczby liści oraz wartości parametru: 
+
+```{r}
 par(mfrow=c(1,2))
 plot(cv.heart.tree$size, cv.heart.tree$dev, type="b")
 plot(cv.heart.tree$k, cv.heart.tree$dev, type="b")
 
+```
 
+
+
+Uzyskana sekwencja drzew: 
+```{r  fig.width=8, fig.height=4, warning=FALSE, eval=TRUE, message=FALSE, tidy=TRUE, fig.show='hold', fig.align='center'}
+for (leaves_cnt in cv.heart.tree$size[1:length(cv.heart.tree$size)-1] ){
+  
+  pruned.heart.tree=prune.misclass(heart.tree, best=leaves_cnt)
+  print(summary(pruned.heart.tree))
+  plot(pruned.heart.tree)
+  text(pruned.heart.tree, pretty=0)
+
+  
+}
+```
+```{r}
+plot.tree.sequence(cv.heart.tree)
+```
+
+```{r}
 
 pruned.heart.tree=prune.misclass(heart.tree, best=4)
 summary(pruned.heart.tree)
@@ -176,6 +300,11 @@ summary(pruned.heart.tree)
 plot(pruned.heart.tree)
 text(pruned.heart.tree, pretty=0)
 
+
+deviance(heart.tree)
+misclass.tree(heart.tree, detail=FALSE)
+#Liczba błędnych klasyfikacji w każdym z węzłów (niekoniecznie liści)
+misclass.tree(heart.tree, detail=TRUE)
 
 ```
 ####Błąd klasyfikacji 
@@ -203,17 +332,45 @@ heart.tree <- rpart(formula, train ,method="class")
 summary(heart.tree)
 rpart.plot(heart.tree, uniform=TRUE)
 
+```
+
+
+
+```{r}
+
 printcp(heart.tree)
+```
+
+Jak wyznaczyć miejsce przycięcia:
+
+
+
+Wybrać drzewo o najmniejszym błędzie na zbiorze walidującym (xerror)
+
+
+```{r}
+
+
+
+
 opt <- which.min(heart.tree$cptable[,'xerror'])
 cp<-heart.tree$cptable[opt,"CP"]
 
-#pruned<-prune(heart.tree,cp)
-
-plot(heart.tree)
-text(heart.tree)
 
 ```
+Najlepszy podział : `r opt`
 
+Wartość complexity-cost (cp) : `r cp`
+```{r}
+
+pruned<-prune.rpart(heart.tree,cp)
+rpart.plot(pruned, uniform=TRUE)
+
+
+```
+Inne podejście: 
+
+As a rule of thumb, it’s best to prune a decision tree using the cp of smallest tree that is within one standard deviation of the tree with the smallest xerror. 
 
 
 ##Random forest
