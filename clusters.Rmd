@@ -1,0 +1,430 @@
+---
+title: "Analiza skupień"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+Przykładowy zbiór danych w przestrzeni dwuwymiarowej: 
+
+```{r}
+ds<-data.frame( id=c('X1', 'X2', 'X3', 'X4', 'X5'), x = c(1,1,2,6,6), y=c(1,3,1,1,3))
+ds
+
+```
+```{r}
+library(ggplot2)
+library(ggrepel)
+ggplot(ds, aes(x=x, y=y))+geom_point(color="blue", size=3)+geom_label_repel(aes(label = id), point.padding = 0.5, box.padding=0.35) + xlim(0, 6) + ylim(0,4)
+
+```
+#Grupowanie 
+
+Suma kwadratów odległości między parami punktów w zbiorze: 
+
+
+$T = \frac{1}{2}\sum_{i=1}^{n}\sum_{j=1}^{n} d({ \mathbf x_{i}, \mathbf x_{j}})^2$
+
+
+składa się z sumy kwadratów odległości  punktów należącyh do tego samego skupienia (WC - Within Cluster) oraz sumy kwadratów odległości par punktów takich, że obydwa punkty należą do różnych skupień (Between Cluster - BC): 
+
+$T = BC + WC$ 
+
+
+Suma kwadratów odległości pomiędzy parami punktów należących do tego samego skupienia: 
+
+$WC = \frac{1}{2}\sum_{k=1}^{K}\sum_{i \in C_{k}}\sum_{j \in C_{k}} d({ \mathbf x_{i}, \mathbf x_{j}})^2$
+
+Jeżeli przez $W_{k}$ oznaczymy sumę kwadratów odległości  w klastrze k: 
+
+$WC = \sum_{k=1}^{K}W_{k}$ , gdzie 
+
+
+$W_{k} = \frac{1}{2}\sum_{i \in C_{k}}\sum_{j \in C_{k}} d({ \mathbf x_{i}, \mathbf x_{j}})^2$
+
+
+
+Suma kwadratów odległości pomiędzy parami punktów  nie należących do tego samego skupienia: 
+
+
+
+$BC = \frac{1}{2}\sum_{k=1}^{K}\sum_{i \in C_{k}}\sum_{j \notin C_{k}} d({ \mathbf x_{i}, \mathbf x_{j}})^2$
+
+
+#  Zadanie grupowania: 
+
+Przy zadanej liczbie skupień, szukamy takiego podziału, który zminimalizuje WC (co jet równoważe z zmaksymalizacją  BC).
+
+Liczba możliwych  podziałów zbioru na grupy: 
+
+
+$\frac{1}{K!}\sum_{k=1}^{K}(-1)^{K - k} {K \choose k}k^{n}$
+
+
+Środki skupień (centroidy skupień, CLUS MEAN) 
+
+
+$\mathbf m_{k}$ - wektor środka k-tego skupienia, środek ciężkości k-tego skupienia
+
+$\mathbf m_{k} = \frac{\sum_{i \in C_{k}} \mathbf x_{i}}{n_{k}}$ 
+
+
+
+Suma kwadratów odległości par punktów należących do jednego skupienia :   można wyliczyć również wykorzystując centroid skupienia: 
+
+$WC = \sum_{k=1}^{K}(\sum_{i \in C_{k}} d({ \mathbf x_{i}, \mathbf m_{k}})^2)\cdot n_{k}$
+
+
+Suma kwadratów wewnątrzskupieniowych k-tego skupienia (within cluster sum of squares, within_ss): 
+
+$within\_ss_{k} = \sum_{i \in C_{k}} d({ \mathbf x_{i}, \mathbf m_{k}})^2$
+
+
+
+$WC = \sum_{k=1}^{K} within\_ss_{k}\cdot n_{k}$
+
+Całkowita suma kwadratów wewnątrzskupieniowych: 
+
+
+$tot.withinss = \sum_{i \in C_{k}} d({ \mathbf x_{i}, \mathbf m_{k}})^2$
+
+
+gdzie $n_{k}$ oznacza liczbę elementów n-tego skupienia
+
+
+### Analiza wariancji 
+
+Total sum of squares (total_ss): 
+
+$total\_ss = \frac{T}{n}$
+
+$total\_ss = \sum_{i = 1}^{n} d({ \mathbf x_{i}, \mathbf m})^2$
+
+
+### Odchylenia standardowe dla zbioru  
+
+Odchylenia standardowe skupień możemy policzyć niezależnie dla każdej składowej wektora (w tym przypadku x,y) lub dla całego wektora (overall). 
+
+##### Odchylenia standardowe dla składowych wektora: 
+
+TOTAL_STD
+
+$sd^{v} = \sqrt  \frac{\sum_{i=1}^{n}(x_{i}^v - \bar{x^v})^2}{n-1}$
+
+
+##### Całkowite odchylenie, uwzględniające wszystkie składowe wektora (overall) 
+
+OVERALL_TOTAL_STD
+
+$sd = \sqrt  \frac{\sum_{v=1}^{\nu}  \sum_{i=1}^{n}(x_{i}^v - \bar{x^v})^2}{\nu \cdot (n-1)}$
+
+
+
+### Odchylenia standardowe po procesie klastrowania  
+
+
+##### Odchylenia wewnątrzklastrowe 
+
+
+
+$\nu$ liczba współrzędnych  (wymiar wektora)
+
+
+
+WITHIN STD 
+
+OVERALL
+
+The within STD of the OVERALL variable equals RMSE and is an indication of the overall fit of the model. 
+
+$within\_sd_{k} = \sqrt  \frac{\sum_{v=1}^{\nu}\sum_{i=1}^{n}(x_{i}^v - m_{k}^{v})^2}{\nu\cdot(n-2)}$
+
+##### Odchylenia wewnątrzklastrowe  dla składowej wektora 
+
+The Within STD for variable indicates the typical distance  an observation is from the respective cluster mean. 
+
+$sd_{k}^{v} = \sqrt  \frac{\sum_{i=1}^{n}(x_{i}^v - m_{k}^{v})^2}{n-K}$
+
+
+
+
+##### Odchylenie standardowe średniej kwadratowej dla klastra
+
+The root mean squared standard deviation of a cluster 
+
+$RMSSTD_{k} = \sqrt{\frac{W_{k}}{\nu (n_{k}-1)}}$
+
+RMSSTD is the pooled standard deviation of all the variables forming the cluster.  Since the objective of cluster analysis is to form homogeneous groups, the RMSSTD of a cluster should be as small as possible.  
+
+
+
+#R-squared
+
+### R-squared overall 
+
+$Rsqr = 1 - \frac{WC}{T}$
+
+### R-squared dla każdej składowej wektora 
+
+$Rsqr^{v} = 1 - \frac{sd^{v}_{k}}{sd^{v}}$
+
+# Grupowanie 
+
+Dla podanego zbioru danych procedura klastrowania zwraca wyniki: 
+```{r}
+clusters<-kmeans(ds[,c('x','y')], 2)
+clusters
+
+```
+Obserwacje należące do klastrów: 
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+ds_clustered = cbind(ds, cluster= clusters$cluster)
+
+ggplot(ds_clustered, aes(x=x, y=y, color=as.factor(cluster))) + geom_point(aes(color=as.factor(cluster)), size=3)+geom_label_repel(aes(label = id), point.padding = 0.5, box.padding=0.35) + xlim(0, 6) + ylim(0,4)
+
+```
+
+
+
+```{r}
+ds_clustered
+```
+Dla podanego grupowania mamy: 
+
+Suma kwadratów odległości między parami punktów w zbiorze: 
+
+```{r}
+T <- sum(dist(ds_clustered[, c('x', 'y')])^2)
+```
+
+
+$T = \frac{1}{2}\sum_{i=1}^{n}\sum_{j=1}^{n} d({ \mathbf x_{i}, \mathbf x_{j}})^2$ = `r T`
+
+
+
+
+```{r}
+WC <- sum(dist(ds_clustered[ds_clustered$cluster==1, c('x', 'y')])^2)   +sum(dist(ds_clustered[ds_clustered$cluster==2, c('x', 'y')])^2)
+
+
+BC<-T-WC
+```
+Sumwa kwadratów odległości pomiędzy punktami w z: 
+
+$WC = \frac{1}{2}\sum_{k=1}^{K}\sum_{i \in C_{k}}\sum_{j \in C_{k}} d({ \mathbf x_{i}, \mathbf x_{j}})^2$=`r WC`
+
+
+Between cluster sum of squares (between_ss): 
+
+$BC = \frac{1}{2}\sum_{k=1}^{K}\sum_{i \in C_{k}}\sum_{j \notin C_{k}} d({ \mathbf x_{i}, \mathbf x_{j}})^2$=`r BC`
+
+
+#### Środki skupień :
+
+$\mathbf m_{k} = \frac{\sum_{i \in C_{k}} \mathbf x_{i}}{n_{k}}$  
+
+```{r}
+clusters$centers
+```
+
+Suma kwadratów odległości wewnątrzskupieniowych  można wyliczyć również wykorzystując środek cieżkości skupienia: 
+
+$WC = \sum_{k=1}^{K}(\sum_{i \in C_{k}} d({ \mathbf x_{i}, \mathbf m_{k}})^2)\cdot n_{k}$
+
+gdzie $n_{k}$ oznacza liczbę elementów n-tego skupienia
+
+
+
+### total_ss :suma kwadratów odległości od środka 
+
+Total sum of squares (total_ss): 
+
+$total\_ss = \sum_{i = 1}^{n} d({ \mathbf x_{i}, \mathbf m})^2$=`r clusters$totss`
+
+to suma kwadratów odleglości podzielona przez liczbę obserwacji :
+```{r}
+# Pierwszy sposób liczenia z macierzy odległości punktów 
+total_ss = 0.5*sum(apply(as.matrix(dist(ds[,c('x','y')])),1,function(x) x*x))/5
+total_ss
+
+#Drugi sposób z wariancji składowych wektora 
+total_ss = (var(ds$x) + var(ds$y))*(5-1)
+total_ss
+
+
+```
+
+### Zmienność wewnątrzskupieniowa (tot.withiness)
+
+tot.withinss:
+
+```{r}
+clusters$tot.withinss
+```
+W podziale na klastry: 
+
+Zmienność wewnątrzskupieniowa k-tego skupienia:
+```{r}
+clusters$withinss
+```
+to inaczej suma kwadratów odległości punktów przypisanych do klastra  od środka klastra: 
+```{r}
+
+
+clus1<- ds_clustered[ds_clustered$cluster==1, c('x','y')]
+clus2<- ds_clustered[ds_clustered$cluster==2, c('x','y')]
+
+withiness_1<- (var(clus1$x)+var(clus1$y))*(nrow(clus1)-1)
+withiness_2 <-(var(clus2$x)+var(clus2$y))*(nrow(clus2)-1)
+
+withiness_1 
+withiness_2
+```
+
+lub suma kwadratów odległości podzielona przez liczbę obserwacji w klastrze: 
+
+```{r}
+
+withiness_1 = 0.5 * sum (apply(as.matrix(dist(clus1)), 1, function(x) x*x ) ) / nrow(clus1)
+withiness_2 = 0.5 * sum (apply(as.matrix(dist(clus2)), 1, function(x) x*x ) ) / nrow(clus2)
+
+withiness_1 
+withiness_2 
+```
+### Between clusters 
+
+I zostaje jeszcze betweenss: 
+
+```{r}
+clusters$betweenss
+```
+Które jest równe różnicy 
+```{r}
+betweenss = total_ss  - clusters$tot.withinss
+betweenss
+```
+
+
+```{r}
+clusters$tot.withinss + clusters$betweenss
+```
+
+
+
+# Odchylenia standardowe  
+
+## Odchylenia standardowe zmiennych: 
+
+```{r}
+
+#funkcja odchylenie standardowe 
+SD = apply( ds[c('x','y')], 2, sd)
+SD 
+
+#kalkulacja od podstaw 
+x<- ds$x
+sqrt(sum((x - mean(x))^2)/4)
+
+y<- ds$y
+sqrt(sum((y - mean(y))^2)/4)
+```
+
+SD = [ `r SD` ]  
+
+### Całkowite odchylenie 
+
+```{r}
+
+TOTAL_STD = sqrt((var(ds$x)+var(ds$y))/2)
+TOTAL_STD = sqrt((sum((x - mean(x))^2) + sum((y - mean(y))^2)) / (2*4))
+
+```
+TOTAL_STD = `r TOTAL_STD` 
+
+### Odchylenie standardowe średniej kwadratowej
+
+The root mean squared standard deviation of a cluster 
+
+
+$RMSSTD_{k} = \sqrt{\frac{W_{k}}{\nu (n_{k}-1)}}$
+
+gdzie:
+
+$\nu$ liczba współrzędnych  (wymiar wektora)
+
+$\nu$ = 2 
+
+$n_{k}$ = [ `r clusters$size` ] 
+
+$W_{k}$ = [ `r clusters$withinss` ]
+
+Cluster Summary  
+
+Cluster RMS Std Deviation
+```{r}
+
+RMSSTD_1= sqrt(clusters$withinss[1] / (2 * (clusters$size[1] -1)) )
+RMSSTD_2= sqrt(clusters$withinss[2] / (2 * (clusters$size[2] -1)) )
+
+
+RMSSTD= sqrt(clusters$withinss / (2 * (clusters$size -1)) )
+```
+
+$RMSSTD_{k}$ = [ `r RMSSTD` ]
+
+
+# Odchylenia standardowe klastrów 
+
+WITHIN STD
+
+```{r}
+
+dist_from_center<-(as.matrix(ds[c('x','y')]) - clusters$centers[clusters$cluster,])
+dist_from_center_ss <- apply(dist_from_center^2, 2, sum)
+
+within_std <- sqrt(dist_from_center_ss/(nrow(ds)-2))
+within_std
+```
+
+OVERALL WITHIN STD
+
+```{r}
+
+overall_within_std  <-  sqrt ( sum(dist_from_center_ss) / ( 2 * (nrow(ds)-2)))
+overall_within_std
+```
+
+
+R-Square 
+
+
+
+### R-square  over variables
+```{r}
+
+
+
+dist_from_center<-(as.matrix(ds[c('x','y')]) - clusters$centers[clusters$cluster,])
+dist_from_center_ss <- apply(dist_from_center^2, 2, sum)
+
+total_ss <- dist_from_center_ss/(nrow(ds)-1)
+var <- apply(ds[c('x','y')], 2, var)
+
+R_square <- 1 - (total_ss / var)
+
+
+```
+
+R-square = [`r R_square` ] 
+
+
+## R-squared overall 
+```{r}
+R2_overall = 1 - sum(clusters$withinss) / clusters$totss
+```
+
+
